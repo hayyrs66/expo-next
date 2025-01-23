@@ -12,7 +12,7 @@ export default function AppHeader({ user }) {
     };
 
     return (
-        <header className="flex justify-between items-center p-4 bg-white shadow-md">
+        <header className="flex justify-between items-center px-6 py-6 shadow-md">
             <h1 className="text-xl font-semibold">Dashboard</h1>
             <div className="flex items-center">
                 <span className="mr-4">Hola, {user.username}</span>

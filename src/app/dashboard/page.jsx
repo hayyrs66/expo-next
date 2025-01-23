@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AppSidebar from '@components/Sidebar';
 import AppHeader from '@components/Header';
 import MainContent from '@components/MainContent';
 import DashboardContent from '@components/DashboardContent';
@@ -18,6 +17,7 @@ export default function Dashboard() {
         const res = await fetch('/api/checkauth', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
+          console.log(data.user)
           setUser(data.user);
         } else {
           router.push('/');
@@ -37,11 +37,9 @@ export default function Dashboard() {
 
   return (
     <div className="flex">
-      <AppSidebar />
       <div className="flex-1 flex flex-col">
         <AppHeader user={user} />
         <MainContent>
-          {/* Aquí irá el contenido específico del dashboard */}
           <DashboardContent />
         </MainContent>
       </div>
