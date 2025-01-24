@@ -11,7 +11,7 @@ export async function hashPassword(password) {
 }
 
 function testHashPassword() {
-    const password = '@marian!_25';
+    const password = '@adrian!_25';
     return hashPassword(password);
     
 }

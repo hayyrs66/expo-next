@@ -30,7 +30,7 @@ export async function POST(req) {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, user, password")
+      .select("id, user, password, name")
       .eq("user", username)
       .single();
 
@@ -52,7 +52,7 @@ export async function POST(req) {
         { status: 401 }
       );
     }
-    const token = generateToken({ id: user.id, username: user.user });
+    const token = generateToken({ id: user.id, username: user.name});
 
     console.log("Token generado:", token);
 

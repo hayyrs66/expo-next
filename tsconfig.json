@@ -36,7 +36,7 @@
   "**/*.tsx",
   "src/components/Login.jsx",
   "src/app/middleware.js"
-],
+, "src/components/DatePicker.jsx", "src/components/ui/spotlight-new.js"],
   "exclude": [
     "node_modules"
   ]

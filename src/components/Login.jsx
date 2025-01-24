@@ -7,6 +7,7 @@ import { Input } from '@shadcn/ui/input';
 import { Label } from '@shadcn/ui/label';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@shadcn/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@shadcn/ui/alert';
+import Loader from "@components/Loader/Loader";
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -60,7 +61,7 @@ export default function Login() {
   
 
   return (
-    <Card className="w-full h-full py-6 flex flex-col justify-center items-start max-w-md mx-auto">
+    <Card className="w-full h-full py-2 flex flex-col justify-center items-start max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="text-xl font-bold">Iniciar Sesión</CardTitle>
       </CardHeader>
@@ -94,7 +95,7 @@ export default function Login() {
       </CardContent>
       <CardFooter>
         <Button onClick={handleLogin} disabled={loading} className="w-full">
-          {loading ? 'Cargando...' : 'Iniciar Sesión'}
+          {loading ? <Loader /> : 'Iniciar Sesión'}
         </Button>
       </CardFooter>
     </Card>
