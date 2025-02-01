@@ -18,9 +18,13 @@ export default function DatePicker({ onChange }) {
   const [date, setDate] = React.useState(null);
 
   const handleDateSelect = (selectedDate) => {
+    const formattedDate = selectedDate
+      ? selectedDate.toLocaleDateString('en-CA', { timeZone: 'America/Guatemala' })
+      : null;
+
     setDate(selectedDate);
     if (onChange) {
-      onChange(selectedDate);
+      onChange(formattedDate);
     }
   };
 
@@ -42,7 +46,7 @@ export default function DatePicker({ onChange }) {
         <Calendar
           mode="single"
           selected={date}
-          onSelect={handleDateSelect} // Use the handler to manage date selection
+          onSelect={handleDateSelect}
           initialFocus
           locale={es}
         />
