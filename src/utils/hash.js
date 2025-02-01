@@ -9,13 +9,3 @@ export async function hashPassword(password) {
         throw new Error('Error hashing password: ' + error.message);
     }
 }
-
-function testHashPassword() {
-    const password = '@adrian!_25';
-    return hashPassword(password);
-    
-}
-
-const pass = await testHashPassword();
-
-console.log(pass)
