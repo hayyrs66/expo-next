@@ -15,15 +15,26 @@ import {
 } from "@/components/ui/popover";
 
 export default function DatePicker({ onChange }) {
-  const [date, setDate] = React.useState(null);
+  // El estado es inicialmente una cadena vacía
+  const [date, setDate] = React.useState('');
 
   const handleDateSelect = (selectedDate) => {
-    const formattedDate = selectedDate
-      ? selectedDate.toLocaleDateString('en-CA', { timeZone: 'America/Guatemala' })
-      : null;
+    // Si ya hay una fecha (objeto Date) y se vuelve a seleccionarla, se limpia
+    if (date instanceof Date && selectedDate && date.getTime() === selectedDate.getTime()) {
+      setDate('');
+      if (onChange) {
+        onChange('');
+      }
+      return;
+    }
 
     setDate(selectedDate);
     if (onChange) {
+      const formattedDate = selectedDate
+        ? selectedDate.toLocaleDateString("en-CA", {
+            timeZone: "America/Guatemala",
+          })
+        : '';
       onChange(formattedDate);
     }
   };
@@ -45,7 +56,7 @@ export default function DatePicker({ onChange }) {
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
-          selected={date}
+          selected={date || undefined} // Si date es '', se pasa undefined para que no haya selección
           onSelect={handleDateSelect}
           initialFocus
           locale={es}
