@@ -57,14 +57,18 @@ export default function Dashboard() {
   const handleExport = async () => {
     try {
       setExporting(true);
-      const url = `/api/exportcalls?date=${selectedDate}`;
+      const url = selectedDate 
+        ? `/api/exportcalls?date=${selectedDate}` 
+        : `/api/exportcalls`;
+        
       const response = await fetch(url);
       if (!response.ok) throw new Error('Error al obtener datos');
   
       const data = await response.json();
-      
       if (!data || data.length === 0) {
-        alert('No se encontraron registros para la fecha seleccionada.');
+        alert(selectedDate 
+          ? 'No se encontraron registros para la fecha seleccionada.' 
+          : 'No se encontraron registros.');
         return;
       }
   
@@ -73,7 +77,9 @@ export default function Dashboard() {
       utils.book_append_sheet(wb, ws, "Llamadas");
   
       const timestamp = new Date().toISOString().slice(0, 10);
-      const baseName = `llamadas_${selectedDate}_${timestamp}`;
+      const baseName = selectedDate 
+        ? `llamadas_${selectedDate}_${timestamp}` 
+        : `llamadas_${timestamp}`;
   
       writeFile(wb, `${baseName}.xlsx`);
     } catch (error) {
@@ -83,6 +89,7 @@ export default function Dashboard() {
       setExporting(false);
     }
   };
+  
   
 
   useEffect(() => {
@@ -95,8 +102,6 @@ export default function Dashboard() {
       year: 'numeric',
     });
     setToday(guatemalaDateFormatted);
-    setSelectedDate(getGuatemalaDate()); // Establecer la fecha en formato YYYY-MM-DD
-
 
     const fetchUser = async () => {
       try {
