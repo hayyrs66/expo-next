@@ -57,30 +57,30 @@ export default function Dashboard() {
   const handleExport = async () => {
     try {
       setExporting(true);
-      const url = selectedDate 
-        ? `/api/exportcalls?date=${selectedDate}` 
+      const url = selectedDate
+        ? `/api/exportcalls?date=${selectedDate}`
         : `/api/exportcalls`;
-        
+
       const response = await fetch(url);
       if (!response.ok) throw new Error('Error al obtener datos');
-  
+
       const data = await response.json();
       if (!data || data.length === 0) {
-        alert(selectedDate 
-          ? 'No se encontraron registros para la fecha seleccionada.' 
+        alert(selectedDate
+          ? 'No se encontraron registros para la fecha seleccionada.'
           : 'No se encontraron registros.');
         return;
       }
-  
+
       const ws = utils.json_to_sheet(data);
       const wb = utils.book_new();
       utils.book_append_sheet(wb, ws, "Llamadas");
-  
+
       const timestamp = new Date().toISOString().slice(0, 10);
-      const baseName = selectedDate 
-        ? `llamadas_${selectedDate}_${timestamp}` 
+      const baseName = selectedDate
+        ? `llamadas_${selectedDate}_${timestamp}`
         : `llamadas_${timestamp}`;
-  
+
       writeFile(wb, `${baseName}.xlsx`);
     } catch (error) {
       console.error('Error:', error);
@@ -89,8 +89,8 @@ export default function Dashboard() {
       setExporting(false);
     }
   };
-  
-  
+
+
 
   useEffect(() => {
     const date = new Date();
@@ -137,38 +137,41 @@ export default function Dashboard() {
     if (!user) return;
 
     try {
-      // Total de llamadas de hoy para el usuario
+      // Total de llamadas de hoy para el usuario (siempre se actualiza)
       const todayParams = new URLSearchParams({
         userId: user.id,
         date: new Date().toLocaleDateString('en-CA')
       });
       setTotalCalls(await fetchCallCount(todayParams));
 
-      // Llamadas personales por fecha
       if (selectedDate) {
+        // Llamadas personales por fecha
         const dateParams = new URLSearchParams({
           userId: user.id,
           date: selectedDate
         });
         setCallsByDate(await fetchCallCount(dateParams));
-      }
 
-      // Total histórico global
-      const globalParams = new URLSearchParams({ global: 'true' });
-      setTotalOperatorCalls(await fetchCallCount(globalParams));
-
-      // Total global por fecha
-      if (selectedDate) {
+        // Total global por fecha
         const operatorDateParams = new URLSearchParams({
           global: 'true',
           date: selectedDate
         });
         setTotalOperatorCallsByDate(await fetchCallCount(operatorDateParams));
+      } else {
+        // Sin fecha seleccionada, reiniciamos los contadores
+        setCallsByDate(null);
+        setTotalOperatorCallsByDate(null);
       }
+
+      // Total histórico global (siempre se actualiza)
+      const globalParams = new URLSearchParams({ global: 'true' });
+      setTotalOperatorCalls(await fetchCallCount(globalParams));
     } catch (error) {
       console.error('Error al obtener datos:', error);
     }
   };
+
 
 
   useEffect(() => {
@@ -280,10 +283,9 @@ export default function Dashboard() {
         <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
           <DatePicker onChange={(date) => {
-            if (date) {
-              setSelectedDate(date)
-            }
+            setSelectedDate(date || '');
           }} />
+
           <Button onClick={handleExport} disabled={exporting}>
             {exporting ? 'Exportando...' : 'Exportar'}
           </Button>
@@ -352,10 +354,11 @@ export default function Dashboard() {
               <span className="text-red-500">{errorDateCalls}</span>
             ) : (
               <span className="text-4xl font-bold">
-                {callsByDate || "--"}
+                {selectedDate ? (callsByDate || "--") : "--"}
               </span>
             )}
           </CardContent>
+
         </Card>
         <Card className="mt-8">
           <CardHeader>
