@@ -56,58 +56,34 @@ export default function Dashboard() {
 
   const handleExport = async () => {
     try {
-      setExporting(true)
-      const url = `/api/exportcalls${selectedDate ? `?date=${selectedDate}` : ''}`
-      const response = await fetch(url)
-
-      if (!response.ok) throw new Error('Error al obtener datos')
-
-      const data = await response.json()
-
-      // Crear CSV
-      const csvContent = [
-        ['Fecha', 'Usuario', 'Razón', 'Número'],
-        ...data.map(call => [
-          call.call_date,
-          call.user_id,
-          call.reason,
-          call.number,
-        ])
-      ].map(e => e.join(',')).join('\n')
-
-      // Crear Excel
-      const ws = utils.json_to_sheet(data.map(call => ({
-        Fecha: call.call_date,
-        Usuario: call.user_id,
-        Razón: call.reason,
-        Número: call.number,
-        Cantidad: call.cantidad
-      })))
-
-      const wb = utils.book_new()
-      utils.book_append_sheet(wb, ws, "Llamadas")
-
-      const timestamp = new Date().toISOString().slice(0, 10)
-      const baseName = `llamadas_${selectedDate || 'completas'}_${timestamp}`
-
-      // Descargar archivos
-      const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const csvLink = document.createElement('a')
-      csvLink.href = URL.createObjectURL(csvBlob)
-      csvLink.download = `${baseName}.csv`
-      document.body.appendChild(csvLink)
-      csvLink.click()
-      document.body.removeChild(csvLink)
-
-      writeFile(wb, `${baseName}.xlsx`)
-
+      setExporting(true);
+      const url = `/api/exportcalls?date=${selectedDate}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Error al obtener datos');
+  
+      const data = await response.json();
+      
+      if (!data || data.length === 0) {
+        alert('No se encontraron registros para la fecha seleccionada.');
+        return;
+      }
+  
+      const ws = utils.json_to_sheet(data);
+      const wb = utils.book_new();
+      utils.book_append_sheet(wb, ws, "Llamadas");
+  
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const baseName = `llamadas_${selectedDate}_${timestamp}`;
+  
+      writeFile(wb, `${baseName}.xlsx`);
     } catch (error) {
-      console.error('Error:', error)
-      alert('Error al exportar: ' + error.message)
+      console.error('Error:', error);
+      alert('Error al exportar: ' + error.message);
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
-  }
+  };
+  
 
   useEffect(() => {
     const date = new Date();
@@ -199,12 +175,12 @@ export default function Dashboard() {
       alert('Por favor, selecciona una razón para la llamada.');
       return;
     }
-  
+
     if (!/^\d{8}$/.test(phoneNumber)) {
       alert('El número debe contener exactamente 8 dígitos');
       return;
     }
-  
+
     try {
       const res = await fetch('/api/addcall', {
         method: 'POST',
@@ -216,28 +192,28 @@ export default function Dashboard() {
           number: `+502${phoneNumber}`
         }),
       });
-  
+
       if (res.ok) {
         toast({ description: "La llamada fue agregada." });
         setPhoneNumber('');
-  
+
         const today = getGuatemalaDate();
         const todayParams = new URLSearchParams({
           userId: user.id,
           date: today
         });
         setTotalCalls(await fetchCallCount(todayParams));
-  
+
         const globalParams = new URLSearchParams({ global: 'true' });
         setTotalOperatorCalls(await fetchCallCount(globalParams));
-  
+
         if (selectedDate === today) {
           const dateParams = new URLSearchParams({
             userId: user.id,
             date: today
           });
           setCallsByDate(await fetchCallCount(dateParams));
-  
+
           const operatorDateParams = new URLSearchParams({
             global: 'true',
             date: today
@@ -253,7 +229,7 @@ export default function Dashboard() {
       alert('Hubo un error al agregar la llamada.');
     }
   };
-  
+
 
   const handleLogout = async () => {
     try {
