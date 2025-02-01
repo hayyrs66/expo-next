@@ -1,24 +1,13 @@
 'use client'
 
 import { useToast } from "@/hooks/use-toast"
-import { Toast, ToastAction } from "@components/ui/toast"
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@components/ui/button';
-import { Spotlight } from '@components/ui/Spotlight';
+import { utils, writeFile } from "xlsx"
+import { Input } from '@shadcn/ui/input'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@components/ui/button'
+import { Spotlight } from '@components/ui/Spotlight'
 import Loader from "@components/Loader/Loader"
-
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@shadcn/ui/table";
-
 import {
   Select,
   SelectContent,
@@ -27,7 +16,7 @@ import {
   SelectGroup,
   SelectLabel,
   SelectItem,
-} from '@shadcn/ui/select';
+} from '@shadcn/ui/select'
 import {
   Card,
   CardContent,
@@ -35,249 +24,225 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import DatePicker from '@/components/DatePicker';
-
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { title } from "process";
+} from '@/components/ui/card'
+import DatePicker from '@/components/DatePicker'
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [today, setToday] = useState('');
-  const [reason, setReason] = useState('expo');
-  const [totalCalls, setTotalCalls] = useState(0);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [callsByDate, setCallsByDate] = useState(0);
-  const [totalOperatorCalls, setTotalOperatorCalls] = useState(0);
-  const [totalOperatorCallsByDate, setTotalOperatorCallsByDate] = useState(0); // Nuevo estado
-  const [loadingTotalCalls, setLoadingTotalCalls] = useState(false);
-  const [errorTotalCalls, setErrorTotalCalls] = useState(null);
-  const [loadingDateCalls, setLoadingDateCalls] = useState(false);
-  const [errorDateCalls, setErrorDateCalls] = useState(null);
-  const [loadingTotalOperatorCallsByDate, setLoadingTotalOperatorCallsByDate] = useState(false); // Nuevo estado de carga
-  const [errorTotalOperatorCallsByDate, setErrorTotalOperatorCallsByDate] = useState(null); // Nuevo estado de error
-  const router = useRouter();
+  const [user, setUser] = useState(null)
+  const [today, setToday] = useState('')
+  const [reason, setReason] = useState('expo')
+  const [totalCalls, setTotalCalls] = useState(0)
+  const [selectedDate, setSelectedDate] = useState('')
+  const [callsByDate, setCallsByDate] = useState(0)
+  const [totalOperatorCalls, setTotalOperatorCalls] = useState(0)
+  const [totalOperatorCallsByDate, setTotalOperatorCallsByDate] = useState(0)
+  const [loadingTotalCalls, setLoadingTotalCalls] = useState(false)
+  const [errorTotalCalls, setErrorTotalCalls] = useState(null)
+  const [loadingDateCalls, setLoadingDateCalls] = useState(false)
+  const [errorDateCalls, setErrorDateCalls] = useState(null)
+  const [loadingTotalOperatorCallsByDate, setLoadingTotalOperatorCallsByDate] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const router = useRouter()
   const { toast } = useToast()
 
 
-  const generatePDF = async () => {
-    if (!selectedDate) {
-      alert("Selecciona una fecha para exportar los datos.");
-      return;
-    }
-
-    try {
-      // Obtener el contenido del dashboard o sección a exportar
-      const content = document.getElementById("pdf-content"); // Asegúrate de que esta ID esté configurada en el div deseado
-
-      // Capturar el área seleccionada con html2canvas
-      const canvas = await html2canvas(content, { scale: 2 });
-      const imgData = canvas.toDataURL("image/png");
-
-      // Crear un PDF con jsPDF
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-
-      // Guardar el archivo PDF
-      pdf.save(`Reporte_${selectedDate}.pdf`);
-    } catch (error) {
-      console.error("Error al generar el PDF:", error);
-      alert("Hubo un error al generar el PDF. Intenta de nuevo.");
-    }
+  const getGuatemalaDate = () => {
+    return new Date().toLocaleDateString('en-CA', {
+      timeZone: 'America/Guatemala'
+    });
   };
 
+
+  const handleExport = async () => {
+    try {
+      setExporting(true)
+      const url = `/api/exportcalls${selectedDate ? `?date=${selectedDate}` : ''}`
+      const response = await fetch(url)
+
+      if (!response.ok) throw new Error('Error al obtener datos')
+
+      const data = await response.json()
+
+      // Crear CSV
+      const csvContent = [
+        ['Fecha', 'Usuario', 'Razón', 'Número'],
+        ...data.map(call => [
+          call.call_date,
+          call.user_id,
+          call.reason,
+          call.number,
+        ])
+      ].map(e => e.join(',')).join('\n')
+
+      // Crear Excel
+      const ws = utils.json_to_sheet(data.map(call => ({
+        Fecha: call.call_date,
+        Usuario: call.user_id,
+        Razón: call.reason,
+        Número: call.number,
+        Cantidad: call.cantidad
+      })))
+
+      const wb = utils.book_new()
+      utils.book_append_sheet(wb, ws, "Llamadas")
+
+      const timestamp = new Date().toISOString().slice(0, 10)
+      const baseName = `llamadas_${selectedDate || 'completas'}_${timestamp}`
+
+      // Descargar archivos
+      const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const csvLink = document.createElement('a')
+      csvLink.href = URL.createObjectURL(csvBlob)
+      csvLink.download = `${baseName}.csv`
+      document.body.appendChild(csvLink)
+      csvLink.click()
+      document.body.removeChild(csvLink)
+
+      writeFile(wb, `${baseName}.xlsx`)
+
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al exportar: ' + error.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   useEffect(() => {
-    const fetchTodayDate = () => {
-      const guatemalaDate = new Date().toLocaleDateString('es-GT', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-      setToday(guatemalaDate);
-    };
+    const date = new Date();
+    const guatemalaDateFormatted = date.toLocaleDateString('es-GT', {
+      timeZone: 'America/Guatemala',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    setToday(guatemalaDateFormatted);
+    setSelectedDate(getGuatemalaDate()); // Establecer la fecha en formato YYYY-MM-DD
 
-    fetchTodayDate();
 
-    async function fetchUser() {
+    const fetchUser = async () => {
       try {
-        const res = await fetch('/api/checkauth', { credentials: 'include' });
+        const res = await fetch('/api/checkauth', { credentials: 'include' })
         if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
+          const data = await res.json()
+          setUser(data.user)
         } else {
-          router.push('/');
+          router.push('/')
         }
       } catch (err) {
-        console.error(err);
-        router.push('/');
+        console.error(err)
+        router.push('/')
       }
     }
 
-    fetchUser();
-  }, [router]);
+    fetchUser()
+  }, [router])
 
-  useEffect(() => {
-    if (user) {
-      const fetchTotalCalls = async () => {
-        try {
-          const res = await fetch(`/api/calls?userId=${user.id}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            setTotalCalls(data.totalCalls);
-          } else {
-            const errorData = await res.json();
-            console.error(`Error al obtener total de llamadas: ${errorData.error}`);
-          }
-        } catch (error) {
-          console.error('Error al obtener total de llamadas:', error);
-        }
-      };
-
-      fetchTotalCalls();
+  const fetchCallCount = async (params) => {
+    try {
+      const res = await fetch(`/api/calls?${params.toString()}`)
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      return data.totalCalls || 0
+    } catch (error) {
+      console.error('Error fetching call count:', error)
+      return 0
     }
-  }, [user]);
+  }
 
-  useEffect(() => {
-    const fetchTotalOperatorCalls = async () => {
-      setLoadingTotalCalls(true);
-      setErrorTotalCalls(null);
-
-      try {
-        const res = await fetch('/api/totalcalls', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setTotalOperatorCalls(data.totalCalls);
-        } else {
-          const errorData = await res.json();
-          setErrorTotalCalls(errorData.error || 'Error al obtener las llamadas.');
-        }
-      } catch (error) {
-        console.error('Error al obtener llamadas totales entre operadores:', error);
-        setErrorTotalCalls('Error al obtener las llamadas.');
-      } finally {
-        setLoadingTotalCalls(false);
-      }
-    };
-
-    fetchTotalOperatorCalls();
-  }, []);
-
-  // Nuevo useEffect para obtener las llamadas totales por fecha para todos los operadores
-  useEffect(() => {
-    const fetchTotalOperatorCallsByDate = async () => {
-      if (!selectedDate) {
-        setTotalOperatorCallsByDate(0);
-        return;
-      }
-
-      setLoadingTotalOperatorCallsByDate(true);
-      setErrorTotalOperatorCallsByDate(null);
-
-      try {
-        const res = await fetch(`/api/totalcallsbydate?date=${selectedDate}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setTotalOperatorCallsByDate(data.totalCalls);
-        } else {
-          const errorData = await res.json();
-          setErrorTotalOperatorCallsByDate(errorData.error || 'Error al obtener las llamadas.');
-          setTotalOperatorCallsByDate(0);
-        }
-      } catch (error) {
-        console.error('Error al obtener llamadas totales por fecha:', error);
-        setErrorTotalOperatorCallsByDate('Error al obtener las llamadas.');
-        setTotalOperatorCallsByDate(0);
-      } finally {
-        setLoadingTotalOperatorCallsByDate(false);
-      }
-    };
-
-    fetchTotalOperatorCallsByDate();
-  }, [selectedDate]);
-
-  const fetchCallsByDate = async (date) => {
-    if (!date) {
-      setCallsByDate(0);
-      return;
-    }
-    setLoadingDateCalls(true);
-    setErrorDateCalls(null);
+  const fetchCounts = async () => {
+    if (!user) return;
 
     try {
-      const res = await fetch(`/api/datecalls?date=${date}&userId=${user.id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      // Total de llamadas de hoy para el usuario
+      const todayParams = new URLSearchParams({
+        userId: user.id,
+        date: new Date().toLocaleDateString('en-CA')
       });
+      setTotalCalls(await fetchCallCount(todayParams));
 
-      if (res.ok) {
-        const data = await res.json();
-        setCallsByDate(data.totalCalls);
-      } else {
-        const errorData = await res.json();
-        setErrorDateCalls(errorData.error || 'Error al obtener las llamadas.');
-        setCallsByDate(0);
+      // Llamadas personales por fecha
+      if (selectedDate) {
+        const dateParams = new URLSearchParams({
+          userId: user.id,
+          date: selectedDate
+        });
+        setCallsByDate(await fetchCallCount(dateParams));
+      }
+
+      // Total histórico global
+      const globalParams = new URLSearchParams({ global: 'true' });
+      setTotalOperatorCalls(await fetchCallCount(globalParams));
+
+      // Total global por fecha
+      if (selectedDate) {
+        const operatorDateParams = new URLSearchParams({
+          global: 'true',
+          date: selectedDate
+        });
+        setTotalOperatorCallsByDate(await fetchCallCount(operatorDateParams));
       }
     } catch (error) {
-      console.error('Error al obtener llamadas por fecha:', error);
-      setErrorDateCalls('Error al obtener las llamadas.');
-      setCallsByDate(0);
-    } finally {
-      setLoadingDateCalls(false);
+      console.error('Error al obtener datos:', error);
     }
   };
+
+
+  useEffect(() => {
+    fetchCounts();
+  }, [user, selectedDate]);
 
   const handleAddCall = async () => {
     if (!reason) {
       alert('Por favor, selecciona una razón para la llamada.');
       return;
     }
-
+  
+    if (!/^\d{8}$/.test(phoneNumber)) {
+      alert('El número debe contener exactamente 8 dígitos');
+      return;
+    }
+  
     try {
       const res = await fetch('/api/addcall', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user?.id,
-          date: new Date().toISOString(),
+          date: getGuatemalaDate(),
           reason,
+          number: `+502${phoneNumber}`
         }),
       });
-
+  
       if (res.ok) {
-
-        toast({
-          description: "La llamada fue agregada.",
-        })
-
-        setTotalCalls(prev => prev + 1);
-        if (selectedDate) {
-          setCallsByDate(prev => prev + 1);
-          setTotalOperatorCallsByDate(prev => prev + 1);
+        toast({ description: "La llamada fue agregada." });
+        setPhoneNumber('');
+  
+        const today = getGuatemalaDate();
+        const todayParams = new URLSearchParams({
+          userId: user.id,
+          date: today
+        });
+        setTotalCalls(await fetchCallCount(todayParams));
+  
+        const globalParams = new URLSearchParams({ global: 'true' });
+        setTotalOperatorCalls(await fetchCallCount(globalParams));
+  
+        if (selectedDate === today) {
+          const dateParams = new URLSearchParams({
+            userId: user.id,
+            date: today
+          });
+          setCallsByDate(await fetchCallCount(dateParams));
+  
+          const operatorDateParams = new URLSearchParams({
+            global: 'true',
+            date: today
+          });
+          setTotalOperatorCallsByDate(await fetchCallCount(operatorDateParams));
         }
       } else {
         const errorData = await res.json();
@@ -288,27 +253,18 @@ export default function Dashboard() {
       alert('Hubo un error al agregar la llamada.');
     }
   };
+  
 
   const handleLogout = async () => {
     try {
-      const res = await fetch('/api/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (res.ok) {
-        router.push('/');
-      } else {
-        const errorData = await res.json();
-        alert(`Error: ${errorData.error}`);
-      }
+      const res = await fetch('/api/logout', { method: 'POST' })
+      if (res.ok) router.push('/')
+      else alert(`Error: ${(await res.json()).error}`)
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      alert('Hubo un error al cerrar sesión.');
+      console.error('Error al cerrar sesión:', error)
+      alert('Hubo un error al cerrar sesión.')
     }
-  };
+  }
 
   if (!user) {
     return (
@@ -320,14 +276,10 @@ export default function Dashboard() {
 
   return (
     <section className="px-12 py-6 z-10">
-      <Spotlight
-        className="-top-40 left-0"
-        fill="#40E0D0"
-      />
-      <header className="flex justify-between outline-none items-center gap-2 mb-8 w-full">
-        <Select onValueChange={(value) => {
-          setReason(value);
-        }}>
+      <Spotlight className="-top-40 left-0" fill="#40E0D0" />
+
+      <header className="flex justify-between items-center gap-2 mb-8 w-full">
+        <Select onValueChange={setReason}>
           <SelectTrigger className="w-[180px]">
             <div className="w-6 h-6 bg-gradient-to-r from-neutral-800 to-neutral-500 rounded-full" />
             <SelectValue placeholder={user.username} />
@@ -338,37 +290,34 @@ export default function Dashboard() {
             </button>
           </SelectContent>
         </Select>
-        <div className="py-1 px-4 font-medium w-fit rounded-sm bg-neutral-900 text-lg">
+        <div className="py-1 px-4 font-medium rounded-sm bg-neutral-900">
           <span className="text-sm font-medium">{today}</span>
         </div>
       </header>
 
-      <div className="w-full flex justify-between items-center">
+      <div className="w-full flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
           <DatePicker onChange={(date) => {
             if (date) {
-              const formattedDate = date.toISOString().split('T')[0];
-              setSelectedDate(formattedDate);
-              fetchCallsByDate(formattedDate);
+              setSelectedDate(date)
             }
           }} />
-          <Button onClick={generatePDF}>Descargar</Button>
+          <Button onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Exportando...' : 'Exportar'}
+          </Button>
         </div>
       </div>
 
       <div className="w-full gap-4 grid grid-cols-3">
-        <Card className="w-full mt-8">
+        <Card className="mt-8">
           <CardHeader>
             <CardTitle className="mb-1">Registrar</CardTitle>
             <CardDescription>Agrega un registro de llamada</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Select
-              onValueChange={(value) => setReason(value)}
-              value='expo'
-            >
-              <SelectTrigger className="w-full">
+          <CardContent className="space-y-4">
+            <Select value={reason} onValueChange={setReason}>
+              <SelectTrigger>
                 <SelectValue placeholder="Razón de llamada" />
               </SelectTrigger>
               <SelectContent>
@@ -378,123 +327,88 @@ export default function Dashboard() {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            <Input
+              placeholder="12345678"
+              value={phoneNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 8)
+                setPhoneNumber(value)
+              }}
+            />
           </CardContent>
-          <CardFooter className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleAddCall}>
+          <CardFooter>
+            <Button variant="outline" onClick={handleAddCall} className="w-full">
               Agregar
             </Button>
           </CardFooter>
         </Card>
 
-
-        <Card className="w-full mt-8">
+        <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="mb-1">Llamadas</CardTitle>
-            <CardDescription>Total de llamadas hoy</CardDescription>
+            <CardTitle className="mb-1">Llamadas de hoy</CardTitle>
+            <CardDescription>
+              {`Total de llamadas realizadas hoy por ${user?.username}`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <span className="font-bold text-4xl">{totalCalls}</span>
           </CardContent>
-          <CardFooter className="flex items-center gap-2" />
         </Card>
 
-        <Card className="w-full mt-8">
+        <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="mb-1">Historial Personal</CardTitle>
-            <CardDescription>Total de llamadas por fecha</CardDescription>
+            <CardTitle className="mb-1">Llamadas personales</CardTitle>
+            <CardDescription>
+              {selectedDate
+                ? `Total de llamadas realizadas el ${selectedDate.split('-').reverse().join('/')} por ${user?.username}`
+                : 'Seleccione una fecha para ver el histórico'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loadingDateCalls ? (
-              <span className="font-medium text-lg">Cargando...</span>
+              <span className="font-medium">Cargando...</span>
             ) : errorDateCalls ? (
-              <span className="font-bold text-4xl text-red-500">{errorDateCalls}</span>
+              <span className="text-red-500">{errorDateCalls}</span>
             ) : (
-              <span className={`${callsByDate == 0 ? 'text-lg font-medium' : 'text-4xl font-bold'}`}>
-                {callsByDate == 0 ? "Sin registro." : callsByDate}
+              <span className="text-4xl font-bold">
+                {callsByDate || "--"}
               </span>
             )}
           </CardContent>
-          <CardFooter className="flex items-center gap-2" />
         </Card>
-
-        <Card className="w-full mt-8">
+        <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="mb-1">Historial General</CardTitle>
-            <CardDescription>Total de llamadas general por fecha.</CardDescription>
+            <CardTitle className="mb-1">Llamadas generales</CardTitle>
+            <CardDescription>
+              {selectedDate
+                ? `Total de llamadas de todos los operadores el ${selectedDate.split('-').reverse().join('/')}`
+                : 'Seleccione una fecha para ver el histórico'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loadingTotalOperatorCallsByDate ? (
-              <span className="font-medium text-lg">Cargando...</span>
-            ) : errorTotalOperatorCallsByDate ? (
-              <span className="font-bold text-4xl text-red-500">{errorTotalOperatorCallsByDate}</span>
+              <span className="font-medium">Cargando...</span>
             ) : (
-              <span className={`${totalOperatorCallsByDate == 0 ? 'text-lg font-medium' : 'text-4xl font-bold'}`}>
-                {selectedDate
-                  ? totalOperatorCallsByDate == 0
-                    ? 'Sin registro.'
-                    : totalOperatorCallsByDate
-                  : 'Seleccionar fecha.'}
+              <span className="text-4xl font-bold">
+                {selectedDate ? (totalOperatorCallsByDate > 0 ? totalOperatorCallsByDate : "--") : '--'}
               </span>
             )}
           </CardContent>
-          <CardFooter className="flex items-center gap-2" />
         </Card>
-
-
-        <Card className="w-full mt-8">
+        <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="mb-1">Total Historico</CardTitle>
-            <CardDescription>Todas las llamadas realizadas.</CardDescription>
+            <CardTitle className="mb-1">Histórico completo</CardTitle>
+            <CardDescription>Total de llamadas registradas por todos los operadores</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingTotalCalls ? (
-              <span className="font-bold text-lg">Cargando...</span>
-            ) : errorTotalCalls ? (
-              <span className="font-bold text-lg text-red-500">{errorTotalCalls}</span>
+              <span className="font-medium">Cargando...</span>
             ) : (
-              <span className="font-bold text-4xl">{totalOperatorCalls}</span>
+              <span className="text-4xl font-bold">{totalOperatorCalls}</span>
             )}
           </CardContent>
-          <CardFooter className="flex items-center gap-2" />
         </Card>
-
-        {/* Contenido para exportar */}
-        <div id="pdf-content" className="mt-6 bg-black">
-          <h2 className="text-2xl font-bold mb-4">Reporte de Llamadas</h2>
-          <p className="text-lg mb-4">
-            Usuario que exportó: <strong>{user?.username || "Cargando..."}</strong>
-          </p>
-          <Table>
-            <TableCaption>Resumen de llamadas</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Métrica</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell>Total de llamadas hoy</TableCell>
-                <TableCell className="text-right">{totalCalls}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Total de llamadas por fecha</TableCell>
-                <TableCell className="text-right">{callsByDate || "Seleccionar fecha"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Total de llamadas general por fecha</TableCell>
-                <TableCell className="text-right">{totalOperatorCallsByDate || "Seleccionar fecha"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Todas las llamadas realizadas</TableCell>
-                <TableCell className="text-right">{totalOperatorCalls}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
-
-
       </div>
     </section>
-  );
+  )
 }
